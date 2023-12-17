@@ -4,11 +4,16 @@
 mod accredit;
 mod verify;
 
-use accredit::create_signature;
+use accredit::{create_app_keys, create_signature, get_app_names, get_verify_signature};
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![create_signature])
+        .invoke_handler(tauri::generate_handler![
+            create_signature,
+            create_app_keys,
+            get_app_names,
+            get_verify_signature
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

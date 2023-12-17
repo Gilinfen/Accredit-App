@@ -1,6 +1,6 @@
 import React from 'react'
 import LayoutCom from './layout'
-import Accredit from './accredit'
+import Accredit from './Accredit'
 
 const App: React.FC = () => (
   <LayoutCom>
