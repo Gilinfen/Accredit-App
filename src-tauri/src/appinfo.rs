@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -16,6 +16,7 @@ pub struct AppInfo {
     pub pub_key_puth: String,
     pub signature: Vec<Signature>,
 }
+
 impl AppInfo {
     // 添加签名到 signature 数组
     pub fn add_signature(&mut self, signature: Signature) {
@@ -23,6 +24,7 @@ impl AppInfo {
     }
 }
 
+// 读取 json
 pub fn read_or_create_json(file_path: &str) -> io::Result<Vec<AppInfo>> {
     if Path::new(file_path).exists() {
         let mut file = File::open(file_path)?;
@@ -38,24 +40,16 @@ pub fn read_or_create_json(file_path: &str) -> io::Result<Vec<AppInfo>> {
     }
 }
 
-pub fn add_element_and_save(file_path: &str, element: AppInfo) -> io::Result<()> {
-    let mut objects = read_or_create_json(file_path)?;
-    objects.push(element);
-    let json_string = serde_json::to_string(&objects)?;
+// 覆盖内容
+pub fn overwrite_json(file_path: &str, new_data: Vec<AppInfo>) -> io::Result<()> {
+    let json_string = serde_json::to_string(&new_data)?;
     fs::write(file_path, json_string)?;
     Ok(())
 }
 
-// fn main() -> io::Result<()> {
-//     let file_path = "path/to/your/file.json";
-
-//     let new_element = AppInfo {
-//         field1: "example".to_string(),
-//         field2: 123,
-//         // 初始化其他字段...
-//     };
-
-//     add_element_and_save(file_path, new_element)?;
-
-//     Ok(())
-// }
+// 更新 json
+pub fn add_element_and_save(file_path: &str, element: AppInfo) -> io::Result<()> {
+    let mut objects = read_or_create_json(file_path)?;
+    objects.push(element);
+    overwrite_json(file_path, objects)
+}

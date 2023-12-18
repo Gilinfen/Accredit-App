@@ -2,20 +2,10 @@ import { Button, Form, Input, Divider, message, Space } from 'antd'
 import { dialog, invoke } from '@tauri-apps/api'
 import { useCallback, useState } from 'react'
 import { DownloadOutlined } from '@ant-design/icons'
+import { chooseSavePath } from '../utils'
 
 type FieldType = {
   appName?: string
-}
-
-async function chooseSavePath() {
-  try {
-    const filePath = await dialog.save({
-      defaultPath: 'public_key.pem',
-    })
-    return filePath
-  } catch (error) {
-    message.error('选择保存路径时出错')
-  }
 }
 
 export default function CreateKey() {
@@ -42,15 +32,12 @@ export default function CreateKey() {
 
   const downloadDir = async () => {
     setDoLoading(true)
-    chooseSavePath().then((newPath) => {
-      invoke('download_pub_key', {
-        appName: form.getFieldValue('appName'),
-        newPath,
-      }).then(() => {
-        setDoLoading(false)
-        setdwdisabled(true)
-        message.success('下次成功')
-      })
+    chooseSavePath('public_key.pem', {
+      appName: form.getFieldValue('appName'),
+    }).then(() => {
+      setDoLoading(false)
+      setdwdisabled(true)
+      message.success('下次成功')
     })
   }
 

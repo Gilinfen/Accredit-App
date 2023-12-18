@@ -8,7 +8,8 @@ mod utils;
 mod verify;
 
 use accredit::{
-    create_app_keys, create_signature, download_pub_key, get_app_names, get_verify_signature,
+    create_app_keys, create_signature, download_secret_key, get_app_info_json, get_app_names,
+    get_verify_signature,
 };
 use utils::{create_file_if_not_exists, get_app_data_dir};
 
@@ -19,7 +20,8 @@ fn main() {
             create_app_keys,
             get_app_names,
             get_verify_signature,
-            download_pub_key
+            download_secret_key,
+            get_app_info_json
         ])
         .setup(|app: &mut tauri::App| {
             // 保存 app 为全局变量

@@ -35,6 +35,11 @@ fn update_json_command(data: AppInfo) -> io::Result<()> {
     appinfo::add_element_and_save(&app_info_path, data)
 }
 
+fn overwrite_json_command(data: Vec<AppInfo>) -> io::Result<()> {
+    let app_info_path = get_app_info_path();
+    appinfo::overwrite_json(&app_info_path, data)
+}
+
 // 使用私钥对数据进行签名
 async fn sign_data(
     priv_key: Arc<RsaPrivateKey>,
@@ -77,7 +82,7 @@ async fn generate_key_pair(
         let _ = RsaPublicKey::write_public_key_pem_file(&pub_key, &pub_key_puth, LineEnding::LF);
 
         // 初始化应用签名信息
-        let signature = vec![];
+        let signature: Vec<Signature> = vec![];
 
         // 存储应用信息
         let new_element = AppInfo {
@@ -136,6 +141,8 @@ pub async fn create_signature(data: Vec<u8>, app_name: &str) -> Result<String, S
         app_info_json.add_signature(signature_val)
     }
 
+    let _ = overwrite_json_command(app_info_json);
+
     Ok(encoded)
 }
 
@@ -184,14 +191,20 @@ pub fn get_verify_signature(
     Ok(vals)
 }
 
-// 下载公钥
+// 下载密钥
 #[tauri::command]
-pub fn download_pub_key(app_name: &str, new_path: &str) -> Result<(), String> {
+pub fn download_secret_key(app_name: &str, new_path: &str, key: &str) -> Result<(), String> {
     let app_data_path: PathBuf = get_app_name_path();
 
-    let keypath = app_data_path.join(format!("{}/public_key.pem", &app_name));
+    let keypath = app_data_path.join(format!("{}/{}", &app_name, &key));
 
     fs::copy(&keypath, new_path).map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+// 读取 appinfo json
+#[tauri::command]
+pub async fn get_app_info_json() -> Vec<AppInfo> {
+    read_json_command().expect("读取 JSON 数据失败")
 }

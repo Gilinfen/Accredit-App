@@ -6,3 +6,13 @@
 textarea {
     resize: none !important;
 }
+
+.copy-icno {
+    cursor: pointer;
+}
+
+.app-list-card {
+    text-align: left !important;
+    margin-bottom: 24;
+    overflow: hidden;
+}
