@@ -28,25 +28,3 @@ pub fn create_file_if_not_exists(file_path: &str) -> io::Result<()> {
     }
     Ok(())
 }
-
-/// 读取 json
-pub fn read_json(file_path: &str) -> io::Result<Value> {
-    let mut file = File::open(file_path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-
-    if contents.trim().is_empty() {
-        // 返回一个错误或默认值
-        return Ok(serde_json::Value::Null);
-    }
-
-    let data: Value = serde_json::from_str(&contents)?;
-    Ok(data)
-}
-
-/// 修改 json
-pub fn update_json<T: Serialize>(data: &T, file_path: &str) -> io::Result<()> {
-    let contents = serde_json::to_string(data)?;
-    fs::write(file_path, contents)?;
-    Ok(())
-}

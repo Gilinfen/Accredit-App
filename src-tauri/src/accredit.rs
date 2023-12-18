@@ -3,27 +3,18 @@ use rsa::{
     pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePrivateKey, EncodePublicKey, LineEnding},
     Pkcs1v15Sign, RsaPrivateKey, RsaPublicKey,
 };
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     fs, io,
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tauri::AppHandle;
 use tokio::task;
 
-use crate::{globalstate::APP_HANDLE, utils, verify};
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct AppData {
-    pub pub_key: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct AppInfos {
-    pub app_name: AppData,
-}
+use crate::{
+    appinfo::{self, AppInfo, Signature},
+    utils, verify,
+};
 
 fn get_app_name_path() -> PathBuf {
     utils::get_app_data_dir().join("app_name")
@@ -34,14 +25,14 @@ fn get_app_info_path() -> String {
     format!("{}/app_info.json", &file_path.to_string_lossy().to_string())
 }
 
-fn read_json_command() -> Result<Value, String> {
+fn read_json_command() -> io::Result<Vec<AppInfo>> {
     let app_info_path = get_app_info_path();
-    utils::read_json(&app_info_path).map_err(|e| e.to_string())
+    appinfo::read_or_create_json(&app_info_path)
 }
 
-fn update_json_command(data: AppInfos) -> Result<(), String> {
+fn update_json_command(data: AppInfo) -> io::Result<()> {
     let app_info_path = get_app_info_path();
-    utils::update_json(&data, &app_info_path).map_err(|e| e.to_string())
+    appinfo::add_element_and_save(&app_info_path, data)
 }
 
 // 使用私钥对数据进行签名
@@ -65,30 +56,39 @@ async fn sign_data(
 }
 
 // 生成 RSA 密钥对（公钥和私钥）
-async fn generate_key_pair(app_name: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn generate_key_pair(
+    app_name_path: String,
+    app_name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let _ = task::spawn_blocking(move || {
         let mut rng = rand::thread_rng();
         let bits = 2048;
         let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
         let pub_key = RsaPublicKey::from(&priv_key);
+
+        let pri_key_path = format!("{}/private_key.pem", &app_name_path);
+        let pub_key_puth = format!("{}/public_key.pem", &app_name_path);
+
         // 存储私钥
-        let _ = RsaPrivateKey::write_pkcs8_pem_file(
-            &priv_key,
-            format!("{}/private_key.pem", &app_name),
-            LineEnding::LF,
-        );
+        let _ = RsaPrivateKey::write_pkcs8_pem_file(&priv_key, &pri_key_path, LineEnding::LF);
         // // 读取私钥
         // let priv_key_pem = RsaPrivateKey::read_pkcs8_pem_file("private_key.pem").expect("msg");
         // 存储公钥
-        let _ = RsaPublicKey::write_public_key_pem_file(
-            &pub_key,
-            format!("{}/public_key.pem", &app_name),
-            LineEnding::LF,
-        );
-        println!(
-            "---------------{}",
-            &format!("{}/public_key.pem", &app_name)
-        );
+        let _ = RsaPublicKey::write_public_key_pem_file(&pub_key, &pub_key_puth, LineEnding::LF);
+
+        // 初始化应用签名信息
+        let signature = vec![];
+
+        // 存储应用信息
+        let new_element = AppInfo {
+            app_name,
+            app_name_path,
+            pri_key_path,
+            pub_key_puth,
+            signature,
+        };
+
+        let _ = update_json_command(new_element);
         // // 读取公钥
         // let pub_key_pem = RsaPublicKey::read_public_key_pem_file("public_key.pem").expect("msg");
     })
@@ -106,7 +106,7 @@ pub async fn create_app_keys(app_name: String) -> Result<(), String> {
 
     let _ = fs::create_dir_all(&app_data_name);
 
-    let _ = generate_key_pair(app_data_name.to_string_lossy().to_string()).await;
+    let _ = generate_key_pair(app_data_name.to_string_lossy().to_string(), app_name).await;
     Ok(())
 }
 
@@ -120,17 +120,28 @@ pub async fn create_signature(data: Vec<u8>, app_name: &str) -> Result<String, S
     // 读取私钥
     let priv_key_pem = RsaPrivateKey::read_pkcs8_pem_file(&app_data_name).expect("msg");
 
-    let signature = sign_data(Arc::new(priv_key_pem), data)
+    let signature = sign_data(Arc::new(priv_key_pem), data.clone())
         .await
         .map_err(|e| e.to_string())?;
     let encoded: String = general_purpose::STANDARD_NO_PAD.encode(&signature);
+
+    let signature_val = Signature {
+        base_code: encoded.clone(),
+        use_info: String::from_utf8(data).expect("from_utf8 转换失败"),
+    };
+
+    let mut app_info_json = read_json_command().expect("获取 JSON 失败");
+
+    if let Some(app_info_json) = app_info_json.iter_mut().find(|s| s.app_name == app_name) {
+        app_info_json.add_signature(signature_val)
+    }
 
     Ok(encoded)
 }
 
 // 获取应用名
 #[tauri::command]
-pub fn get_app_names(app_handle: AppHandle) -> Result<Vec<String>, String> {
+pub fn get_app_names() -> Result<Vec<String>, String> {
     let app_data_path: PathBuf = get_app_name_path();
 
     get_filenames_in_directory(&app_data_path).map_err(|e| e.to_string()) // 转换错误为 String
@@ -156,7 +167,6 @@ fn get_filenames_in_directory(directory: &Path) -> io::Result<Vec<String>> {
 // 验证签名
 #[tauri::command]
 pub fn get_verify_signature(
-    app_handle: AppHandle,
     app_name: &str,
     user_data: Vec<u8>,
     signature: Vec<u8>,
@@ -176,11 +186,7 @@ pub fn get_verify_signature(
 
 // 下载公钥
 #[tauri::command]
-pub fn download_pub_key(
-    app_handle: AppHandle,
-    app_name: &str,
-    new_path: &str,
-) -> Result<(), String> {
+pub fn download_pub_key(app_name: &str, new_path: &str) -> Result<(), String> {
     let app_data_path: PathBuf = get_app_name_path();
 
     let keypath = app_data_path.join(format!("{}/public_key.pem", &app_name));
