@@ -3,22 +3,45 @@ use rsa::{
     pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePrivateKey, EncodePublicKey, LineEnding},
     Pkcs1v15Sign, RsaPrivateKey, RsaPublicKey,
 };
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     fs, io,
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tauri::api::path::app_data_dir;
 use tauri::AppHandle;
 use tokio::task;
 
-use crate::verify::verify_signature;
+use crate::{globalstate::APP_HANDLE, utils, verify};
 
-fn get_app_data_dir(app_handle: &AppHandle) -> PathBuf {
-    app_data_dir(&app_handle.config())
-        .expect("failed to get app data dir")
-        .join("app_name")
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct AppData {
+    pub pub_key: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct AppInfos {
+    pub app_name: AppData,
+}
+
+fn get_app_name_path() -> PathBuf {
+    utils::get_app_data_dir().join("app_name")
+}
+
+fn get_app_info_path() -> String {
+    let file_path = utils::get_app_data_dir();
+    format!("{}/app_info.json", &file_path.to_string_lossy().to_string())
+}
+
+fn read_json_command() -> Result<Value, String> {
+    let app_info_path = get_app_info_path();
+    utils::read_json(&app_info_path).map_err(|e| e.to_string())
+}
+
+fn update_json_command(data: AppInfos) -> Result<(), String> {
+    let app_info_path = get_app_info_path();
+    utils::update_json(&data, &app_info_path).map_err(|e| e.to_string())
 }
 
 // 使用私钥对数据进行签名
@@ -65,7 +88,7 @@ async fn generate_key_pair(app_name: String) -> Result<(), Box<dyn std::error::E
         println!(
             "---------------{}",
             &format!("{}/public_key.pem", &app_name)
-        )
+        );
         // // 读取公钥
         // let pub_key_pem = RsaPublicKey::read_public_key_pem_file("public_key.pem").expect("msg");
     })
@@ -76,8 +99,8 @@ async fn generate_key_pair(app_name: String) -> Result<(), Box<dyn std::error::E
 
 // 生成 RSA 密钥对
 #[tauri::command]
-pub async fn create_app_keys(app_handle: AppHandle, app_name: String) -> Result<(), String> {
-    let app_data_path = get_app_data_dir(&app_handle);
+pub async fn create_app_keys(app_name: String) -> Result<(), String> {
+    let app_data_path = get_app_name_path();
 
     let app_data_name = app_data_path.join(&app_name);
 
@@ -89,12 +112,8 @@ pub async fn create_app_keys(app_handle: AppHandle, app_name: String) -> Result<
 
 // 异步生成签名
 #[tauri::command]
-pub async fn create_signature(
-    app_handle: AppHandle,
-    data: Vec<u8>,
-    app_name: &str,
-) -> Result<String, String> {
-    let app_data_path = get_app_data_dir(&app_handle);
+pub async fn create_signature(data: Vec<u8>, app_name: &str) -> Result<String, String> {
+    let app_data_path = get_app_name_path();
 
     let app_data_name = app_data_path.join(format!("{}/private_key.pem", app_name));
 
@@ -112,7 +131,7 @@ pub async fn create_signature(
 // 获取应用名
 #[tauri::command]
 pub fn get_app_names(app_handle: AppHandle) -> Result<Vec<String>, String> {
-    let app_data_path: PathBuf = get_app_data_dir(&app_handle);
+    let app_data_path: PathBuf = get_app_name_path();
 
     get_filenames_in_directory(&app_data_path).map_err(|e| e.to_string()) // 转换错误为 String
 }
@@ -139,11 +158,10 @@ fn get_filenames_in_directory(directory: &Path) -> io::Result<Vec<String>> {
 pub fn get_verify_signature(
     app_handle: AppHandle,
     app_name: &str,
-    data: &[u8],
-    signature: &[u8],
+    user_data: Vec<u8>,
+    signature: Vec<u8>,
 ) -> Result<bool, String> {
-    println!("SUUCESS");
-    let app_data_path: PathBuf = get_app_data_dir(&app_handle);
+    let app_data_path: PathBuf = get_app_name_path();
 
     // 读取公钥
     let pub_key_pem = RsaPublicKey::read_public_key_pem_file(
@@ -151,7 +169,23 @@ pub fn get_verify_signature(
     )
     .expect("获取公要失败");
 
-    let vals = verify_signature(&pub_key_pem, data, signature);
+    let vals = verify::verify_signature(&pub_key_pem, &user_data, &signature);
 
     Ok(vals)
+}
+
+// 下载公钥
+#[tauri::command]
+pub fn download_pub_key(
+    app_handle: AppHandle,
+    app_name: &str,
+    new_path: &str,
+) -> Result<(), String> {
+    let app_data_path: PathBuf = get_app_name_path();
+
+    let keypath = app_data_path.join(format!("{}/public_key.pem", &app_name));
+
+    fs::copy(&keypath, new_path).map_err(|e| e.to_string())?;
+
+    Ok(())
 }

@@ -1,17 +1,40 @@
-import React from 'react'
-import { UserOutlined } from '@ant-design/icons'
+import React, { useMemo } from 'react'
+import { UserOutlined, AccountBookFilled } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { Layout, Menu, theme } from 'antd'
+import { Outlet, useNavigate } from 'react-router-dom'
 
-const { Header, Content, Sider } = Layout
+const { Content, Sider } = Layout
 
-const items: MenuProps['items'] = [UserOutlined].map((icon, index) => ({
-  key: String(index + 1),
-  icon: React.createElement(icon),
-  label: `nav ${index + 1}`,
-}))
+const itemsObj = [
+  {
+    icon: UserOutlined,
+    label: '签名',
+    link: '/',
+  },
+  {
+    icon: AccountBookFilled,
+    label: '应用',
+    link: '/applint',
+  },
+]
 
-const LayoutCom: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const LayoutCom: React.FC = () => {
+  const nav = useNavigate()
+
+  const items: MenuProps['items'] = useMemo(
+    () =>
+      itemsObj.map((item, index) => ({
+        key: String(index + 1),
+        icon: React.createElement(item.icon),
+        label: item.label,
+        onClick() {
+          nav(item.link)
+        },
+      })),
+    []
+  )
+
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken()
@@ -32,12 +55,11 @@ const LayoutCom: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <Menu
           theme="dark"
           mode="inline"
-          defaultSelectedKeys={['4']}
+          defaultSelectedKeys={['1']}
           items={items}
         />
       </Sider>
       <Layout style={{ marginLeft: 200 }}>
-        <Header style={{ padding: 0, background: colorBgContainer }} />
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
           <div
             style={{
@@ -47,7 +69,7 @@ const LayoutCom: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               borderRadius: borderRadiusLG,
             }}
           >
-            {children}
+            <Outlet />
           </div>
         </Content>
       </Layout>
