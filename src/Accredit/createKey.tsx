@@ -1,5 +1,5 @@
 import { Button, Form, Input, Divider, message, Space } from 'antd'
-import { dialog, invoke } from '@tauri-apps/api'
+import { invoke } from '@tauri-apps/api'
 import { useCallback, useState } from 'react'
 import { DownloadOutlined } from '@ant-design/icons'
 import { chooseSavePath } from '../utils'

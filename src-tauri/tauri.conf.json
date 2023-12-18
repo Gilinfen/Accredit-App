@@ -37,11 +37,14 @@
     },
     "windows": [
       {
+        "label": "main",
         "fullscreen": false,
-        "resizable": true,
+        "resizable": false,
+        "decorations": true,
         "title": "accredit",
-        "width": 1400,
-        "height": 900
+        "width": 1200,
+        "height": 800,
+        "visible": false
       }
     ]
   }
