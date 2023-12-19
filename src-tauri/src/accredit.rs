@@ -175,8 +175,8 @@ fn get_filenames_in_directory(directory: &Path) -> io::Result<Vec<String>> {
 #[tauri::command]
 pub fn get_verify_signature(
     app_name: &str,
-    user_data: Vec<u8>,
-    signature: Vec<u8>,
+    user_data: &str,
+    signature: &str,
 ) -> Result<bool, String> {
     let app_data_path: PathBuf = get_app_name_path();
 

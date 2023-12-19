@@ -2,7 +2,7 @@ import { Button, Form, Input, Divider, message } from 'antd'
 import { invoke } from '@tauri-apps/api'
 import { useCallback, useRef, useState } from 'react'
 import TextArea from 'antd/es/input/TextArea'
-import { SelectAppName, SelectAppNameRef, getU8Arr } from '.'
+import { SelectAppName, SelectAppNameRef } from '.'
 
 type FieldType = {
   signature?: string
@@ -19,8 +19,8 @@ export default function Verify() {
       setLoading(true)
       const redata = {
         appName: appNameRef.current?.appName,
-        userData: getU8Arr(values.user_signature),
-        signature: getU8Arr(values.signature),
+        userData: values.user_signature,
+        signature: values.signature,
       }
       await invoke('get_verify_signature', redata)
         .then((res) => {

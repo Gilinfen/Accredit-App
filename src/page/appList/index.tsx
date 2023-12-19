@@ -64,7 +64,10 @@ export default function AppList() {
           >
             {item.signature.map((val) => (
               <div>
-                <h3>标签：{val.use_info}</h3>
+                <h3>
+                  标签：{val.use_info}
+                  <Copy onClick={() => copyTextToClipboard(val.use_info)} />
+                </h3>
                 <h3>
                   激活码：
                   <Copy onClick={() => copyTextToClipboard(val.base_code)} />
