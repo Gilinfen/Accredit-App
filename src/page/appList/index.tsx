@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api'
-import { Button, Card, Space } from 'antd'
+import { Button, Card, Divider, Space } from 'antd'
 import { useEffect, useState } from 'react'
 import { SecretKey, chooseSavePath, copyTextToClipboard } from '../../utils'
 import Copy from '../../components/copy'
@@ -49,7 +49,6 @@ export default function AppList() {
       setAPplist(res)
     })
   }, [])
-  console.log(applist, '----applist')
 
   return (
     <>
@@ -64,14 +63,23 @@ export default function AppList() {
           >
             {item.signature.map((val) => (
               <div>
-                <h3>
-                  标签：{val.use_info}
-                  <Copy onClick={() => copyTextToClipboard(val.use_info)} />
-                </h3>
-                <h3>
-                  激活码：
-                  <Copy onClick={() => copyTextToClipboard(val.base_code)} />
-                </h3>
+                <Divider>
+                  <h3>{val.use_info}</h3>
+                </Divider>
+                <Button
+                  type="link"
+                  onClick={() => copyTextToClipboard(val.use_info)}
+                  icon={<Copy />}
+                >
+                  Copy 标签
+                </Button>
+                <Button
+                  type="link"
+                  onClick={() => copyTextToClipboard(val.base_code)}
+                  icon={<Copy />}
+                >
+                  Copy 激活码
+                </Button>
               </div>
             ))}
           </Card>

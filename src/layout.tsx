@@ -17,6 +17,11 @@ const itemsObj = [
     label: '应用',
     link: '/applint',
   },
+  {
+    icon: AccountBookFilled,
+    label: 'Base64',
+    link: '/base64',
+  },
 ]
 
 const LayoutCom: React.FC = () => {

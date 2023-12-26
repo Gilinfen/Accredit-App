@@ -9,6 +9,7 @@ import { Button, Form, Input, Divider, Select } from 'antd'
 import { invoke } from '@tauri-apps/api'
 import CreateKey from './createKey'
 import Verify from './verify'
+import { getU8Arr } from '../utils'
 
 const { TextArea } = Input
 
@@ -75,9 +76,6 @@ export const SelectAppName = React.forwardRef<
   )
 })
 
-export const getU8Arr = (data?: string) =>
-  Array.from(new TextEncoder().encode(data))
-
 type FieldType = {
   signature?: string
 }
@@ -106,15 +104,7 @@ const Accredit: React.FC = () => {
   }, [])
 
   return (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-      }}
-    >
+    <div className="context-center">
       <CreateKey />
       <Divider>
         <h3>创建应用签名</h3>

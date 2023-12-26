@@ -24,3 +24,6 @@ export async function chooseSavePath(
     message.error('选择保存路径时出错')
   }
 }
+
+export const getU8Arr = (data?: string) =>
+  Array.from(new TextEncoder().encode(data))

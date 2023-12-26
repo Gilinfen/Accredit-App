@@ -13,7 +13,7 @@ use accredit::{
     create_app_keys, create_signature, download_secret_key, get_app_info_json, get_app_names,
     get_verify_signature,
 };
-use utils::{create_file_if_not_exists, get_app_data_dir};
+use utils::{create_file_if_not_exists, decode_str, encode_str, get_app_data_dir};
 use windows::app_ready;
 
 fn main() {
@@ -25,7 +25,9 @@ fn main() {
             get_verify_signature,
             download_secret_key,
             get_app_info_json,
-            app_ready
+            app_ready,
+            encode_str,
+            decode_str
         ])
         .setup(|app: &mut tauri::App| {
             let app_config = app.config();
