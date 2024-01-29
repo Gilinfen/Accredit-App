@@ -3,7 +3,6 @@
 
 mod accredit;
 mod appinfo;
-mod globalstate;
 mod install;
 mod utils;
 mod verify;
@@ -31,10 +30,6 @@ fn main() {
         ])
         .setup(|app: &mut tauri::App| {
             let app_config = app.config();
-            // 保存 app 为全局变量
-            globalstate::APP_HANDLE
-                .set(app.handle().clone())
-                .expect("Failed to set app handle");
 
             if install::is_first_run(&app_config) {
                 // 首次启动
@@ -46,7 +41,7 @@ fn main() {
                 // 应用启动
             }
 
-            let json_path = get_app_data_dir();
+            let json_path = get_app_data_dir(&app.handle());
             let _ = create_file_if_not_exists(&format!(
                 "{}/app_info.json",
                 &json_path.to_string_lossy().to_string()

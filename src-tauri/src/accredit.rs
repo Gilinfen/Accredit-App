@@ -9,6 +9,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use tauri::AppHandle;
 use tokio::task;
 
 use crate::{
@@ -16,27 +17,27 @@ use crate::{
     utils, verify,
 };
 
-fn get_app_name_path() -> PathBuf {
-    utils::get_app_data_dir().join("app_name")
+fn get_app_name_path(app_handle: &tauri::AppHandle) -> PathBuf {
+    utils::get_app_data_dir(app_handle).join("app_name")
 }
 
-fn get_app_info_path() -> String {
-    let file_path = utils::get_app_data_dir();
+fn get_app_info_path(app_handle: &tauri::AppHandle) -> String {
+    let file_path = utils::get_app_data_dir(app_handle);
     format!("{}/app_info.json", &file_path.to_string_lossy().to_string())
 }
 
-fn read_json_command() -> io::Result<Vec<AppInfo>> {
-    let app_info_path = get_app_info_path();
+fn read_json_command(app_handle: &tauri::AppHandle) -> io::Result<Vec<AppInfo>> {
+    let app_info_path = get_app_info_path(app_handle);
     appinfo::read_or_create_json(&app_info_path)
 }
 
-fn update_json_command(data: AppInfo) -> io::Result<()> {
-    let app_info_path = get_app_info_path();
+fn update_json_command(app_handle: &tauri::AppHandle, data: AppInfo) -> io::Result<()> {
+    let app_info_path = get_app_info_path(app_handle);
     appinfo::add_element_and_save(&app_info_path, data)
 }
 
-fn overwrite_json_command(data: Vec<AppInfo>) -> io::Result<()> {
-    let app_info_path = get_app_info_path();
+fn overwrite_json_command(app_handle: &tauri::AppHandle, data: Vec<AppInfo>) -> io::Result<()> {
+    let app_info_path = get_app_info_path(app_handle);
     appinfo::overwrite_json(&app_info_path, data)
 }
 
@@ -62,6 +63,7 @@ async fn sign_data(
 
 // 生成 RSA 密钥对（公钥和私钥）
 async fn generate_key_pair(
+    app_handle: AppHandle,
     app_name_path: String,
     app_name: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -93,7 +95,7 @@ async fn generate_key_pair(
             signature,
         };
 
-        let _ = update_json_command(new_element);
+        let _ = update_json_command(&app_handle, new_element);
         // // 读取公钥
         // let pub_key_pem = RsaPublicKey::read_public_key_pem_file("public_key.pem").expect("msg");
     })
@@ -104,21 +106,30 @@ async fn generate_key_pair(
 
 // 生成 RSA 密钥对
 #[tauri::command]
-pub async fn create_app_keys(app_name: String) -> Result<(), String> {
-    let app_data_path = get_app_name_path();
+pub async fn create_app_keys(app_handle: AppHandle, app_name: String) -> Result<(), String> {
+    let app_data_path = get_app_name_path(&app_handle);
 
     let app_data_name = app_data_path.join(&app_name);
 
     let _ = fs::create_dir_all(&app_data_name);
 
-    let _ = generate_key_pair(app_data_name.to_string_lossy().to_string(), app_name).await;
+    let _ = generate_key_pair(
+        app_handle.clone(),
+        app_data_name.to_string_lossy().to_string(),
+        app_name,
+    )
+    .await;
     Ok(())
 }
 
 // 异步生成签名
 #[tauri::command]
-pub async fn create_signature(data: Vec<u8>, app_name: &str) -> Result<String, String> {
-    let app_data_path = get_app_name_path();
+pub async fn create_signature(
+    app_handle: AppHandle,
+    data: Vec<u8>,
+    app_name: &str,
+) -> Result<String, String> {
+    let app_data_path = get_app_name_path(&app_handle);
 
     let app_data_name = app_data_path.join(format!("{}/private_key.pem", app_name));
 
@@ -135,21 +146,21 @@ pub async fn create_signature(data: Vec<u8>, app_name: &str) -> Result<String, S
         use_info: String::from_utf8(data).expect("from_utf8 转换失败"),
     };
 
-    let mut app_info_json = read_json_command().expect("获取 JSON 失败");
+    let mut app_info_json = read_json_command(&app_handle).expect("获取 JSON 失败");
 
     if let Some(app_info_json) = app_info_json.iter_mut().find(|s| s.app_name == app_name) {
         app_info_json.add_signature(signature_val)
     }
 
-    let _ = overwrite_json_command(app_info_json);
+    let _ = overwrite_json_command(&app_handle, app_info_json);
 
     Ok(encoded)
 }
 
 // 获取应用名
 #[tauri::command]
-pub fn get_app_names() -> Result<Vec<String>, String> {
-    let app_data_path: PathBuf = get_app_name_path();
+pub fn get_app_names(app_handle: AppHandle) -> Result<Vec<String>, String> {
+    let app_data_path: PathBuf = get_app_name_path(&app_handle);
 
     get_filenames_in_directory(&app_data_path).map_err(|e| e.to_string()) // 转换错误为 String
 }
@@ -174,11 +185,12 @@ fn get_filenames_in_directory(directory: &Path) -> io::Result<Vec<String>> {
 // 验证签名
 #[tauri::command]
 pub fn get_verify_signature(
+    app_handle: AppHandle,
     app_name: &str,
     user_data: &str,
     signature: &str,
 ) -> Result<bool, String> {
-    let app_data_path: PathBuf = get_app_name_path();
+    let app_data_path: PathBuf = get_app_name_path(&app_handle);
 
     // 读取公钥
     let pub_key_pem = RsaPublicKey::read_public_key_pem_file(
@@ -193,8 +205,13 @@ pub fn get_verify_signature(
 
 // 下载密钥
 #[tauri::command]
-pub fn download_secret_key(app_name: &str, new_path: &str, key: &str) -> Result<(), String> {
-    let app_data_path: PathBuf = get_app_name_path();
+pub fn download_secret_key(
+    app_handle: AppHandle,
+    app_name: &str,
+    new_path: &str,
+    key: &str,
+) -> Result<(), String> {
+    let app_data_path: PathBuf = get_app_name_path(&app_handle);
 
     let keypath = app_data_path.join(format!("{}/{}", &app_name, &key));
 
@@ -205,6 +222,6 @@ pub fn download_secret_key(app_name: &str, new_path: &str, key: &str) -> Result<
 
 // 读取 appinfo json
 #[tauri::command]
-pub async fn get_app_info_json() -> Vec<AppInfo> {
-    read_json_command().expect("读取 JSON 数据失败")
+pub async fn get_app_info_json(app_handle: AppHandle) -> Vec<AppInfo> {
+    read_json_command(&app_handle).expect("读取 JSON 数据失败")
 }

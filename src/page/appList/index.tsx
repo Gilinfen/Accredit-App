@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api'
-import { Button, Card, Divider, Space } from 'antd'
+import { Button, Card, Divider, Space, Empty } from 'antd'
 import { useEffect, useState } from 'react'
 import { SecretKey, chooseSavePath, copyTextToClipboard } from '../../utils'
 import Copy from '../../components/copy'
@@ -82,9 +82,11 @@ export default function AppList() {
                 </Button>
               </div>
             ))}
+            {!item.signature.length && <Empty />}
           </Card>
         )
       })}
+      {!applist.length && <Empty />}
     </>
   )
 }

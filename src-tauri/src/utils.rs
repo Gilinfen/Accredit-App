@@ -4,12 +4,10 @@ use std::io::{self};
 use std::path::Path;
 use std::path::PathBuf;
 use tauri::api::path::app_data_dir;
-
-use crate::globalstate::APP_HANDLE;
+use tauri::AppHandle;
 
 /// 获取应用数据目录
-pub fn get_app_data_dir() -> PathBuf {
-    let app_handle: &tauri::AppHandle = APP_HANDLE.get().expect("全局 Tauri App 访问失败");
+pub fn get_app_data_dir(app_handle: &AppHandle) -> PathBuf {
     app_data_dir(&app_handle.config()).expect("failed to get app data dir")
 }
 
